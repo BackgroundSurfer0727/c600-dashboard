@@ -1,4 +1,23 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Weather Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
+</head>
+<body>
+
+<h1>Live Weather Dashboard</h1>
+
+<canvas id="tempChart"></canvas>
+<canvas id="windChart"></canvas>
+
+<img id="cam1" width="300">
+<img id="cam2" width="300">
+<img id="cam3" width="300">
+<img id="cam4" width="300">
+
 <script>
+document.addEventListener("DOMContentLoaded", function() {
 
 const SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTRDj9jqRbu3O_s8vYnC4cE62VDO7LPPaV8oQj1I_pPNxZdH2ijDnIPY9sxSkaerSOlW50UgU5l-WeR/pub?gid=0&single=true&output=csv";
 
@@ -6,10 +25,8 @@ fetch(SHEET_URL)
 .then(res => res.text())
 .then(csv => {
 
-    // 🔧 Convert CSV → array
     const rows = csv.trim().split("\n").map(r => r.split(","));
 
-    // 🔧 Remove header row
     const headers = rows[0];
     const data = rows.slice(1).map(row => {
         let obj = {};
@@ -17,7 +34,6 @@ fetch(SHEET_URL)
         return obj;
     });
 
-    // 🔧 Use correct column names from GAS
     const temps = data.map(d => parseFloat(d["temp"])).slice(-20);
     const winds = data.map(d => parseFloat(d["wind_speed"])).slice(-20);
     const labels = data.map(d => d["timestamp"]).slice(-20);
@@ -38,12 +54,17 @@ fetch(SHEET_URL)
         }
     });
 
-});
+})
+.catch(err => console.error("Fetch error:", err));
 
-// Camera placeholders
+// Camera placeholders (safe now)
 document.getElementById("cam1").src = "cam1.jpg";
 document.getElementById("cam2").src = "cam2.jpg";
 document.getElementById("cam3").src = "cam3.jpg";
 document.getElementById("cam4").src = "cam4.jpg";
 
+});
 </script>
+
+</body>
+</html>
