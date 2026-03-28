@@ -9,7 +9,7 @@
   <!-- Your dashboard logic AFTER PapaParse -->
   <script>
     document.addEventListener("DOMContentLoaded", function() {
-      const SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTRDj9jqRbu3O_s8vYnC4cE62VDO7LPPaV8oQj1I_pPNxZdH2ijDnIPY9sxSkaerSOlW50UgU5l-WeR/pub?gid=0&single=true&output=csv";
+      const SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTRDj9jqRbu3O_s8vYnC4cE62VDO7LPPaV8oQj1I_pPNxZdH2ijDnIPY9sxSkaerSOlW50UgU5l-WeR/pub?output=csv";
 
       fetch(SHEET_URL)
         .then(res => res.text())
