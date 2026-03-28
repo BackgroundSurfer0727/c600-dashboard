@@ -77,14 +77,31 @@
 
         let tempChartInstance = null;
 
-        /**
-         * SAFETY CHECK: Forces a cell value to be a number.
-         * Fixes the "toFixed is not a function" error.
-         */
         function forceNum(cell, precision) {
             if (!cell || cell.v === null || cell.v === undefined) return "--";
             let val = parseFloat(cell.v);
             return isNaN(val) ? "--" : val.toFixed(precision);
+        }
+
+        /**
+         * 🔧 NEW: Fix Google Drive URLs + fallback protection
+         */
+        function processImageUrl(url) {
+            if (!url) return '';
+
+            // If it's a Drive preview link → convert it
+            if (url.includes("drive.google.com/file/d/")) {
+                const fileId = url.split("/d/")[1].split("/")[0];
+                return `https://drive.google.com/uc?export=view&id=${fileId}`;
+            }
+
+            // If already correct format, just return it
+            if (url.includes("drive.google.com/uc?")) {
+                return url;
+            }
+
+            // If it's something else, return as-is
+            return url;
         }
 
         async function fetchWeatherData() {
@@ -94,7 +111,6 @@
             try {
                 const response = await fetch(feedUrl);
                 const text = await response.text();
-                // Extract JSON from Google's response wrapper
                 const jsonString = text.substring(text.indexOf("(") + 1, text.lastIndexOf(")"));
                 const json = JSON.parse(jsonString);
                 const rows = json.table.rows;
@@ -104,8 +120,6 @@
                     return;
                 }
 
-                // Indices match the AppScript order:
-                // 0: Cloud Time, 1: Device Time, 2: Wind Dir, 3: Wind Speed, 4: Temp, 5: Image URL
                 const COL_TIMESTAMP = 1;
                 const COL_WIND = 3;
                 const COL_TEMP = 4;
@@ -113,18 +127,26 @@
 
                 const latestRow = rows[rows.length - 1].c;
 
-                // --- 1. Update UI Labels (Safe from toFixed errors) ---
+                // --- UI Values ---
                 document.getElementById('val-temp').innerText = forceNum(latestRow[COL_TEMP], 1);
                 document.getElementById('val-wind').innerText = forceNum(latestRow[COL_WIND], 1);
                 
-                // Get timestamp (prefer formatted 'f', then value 'v')
                 const ts = latestRow[COL_TIMESTAMP] ? (latestRow[COL_TIMESTAMP].f || latestRow[COL_TIMESTAMP].v) : '--';
                 document.getElementById('timestamp').innerText = "Data as of: " + ts;
                 
-                const imageUrl = latestRow[COL_IMAGE] ? latestRow[COL_IMAGE].v : '';
-                document.getElementById('latest-image').src = imageUrl;
+                // 🔥 IMAGE HANDLING (FIXED + HARDENED)
+                let rawImageUrl = latestRow[COL_IMAGE] ? latestRow[COL_IMAGE].v : '';
+                let finalImageUrl = processImageUrl(rawImageUrl);
 
-                // --- 2. Prepare Chart Data (Last 24 readings) ---
+                const imgEl = document.getElementById('latest-image');
+
+                if (finalImageUrl) {
+                    imgEl.src = finalImageUrl;
+                } else {
+                    imgEl.src = 'https://placehold.co/400x250?text=No+Image';
+                }
+
+                // --- Chart Data ---
                 const labels = [];
                 const tempValues = [];
 
@@ -135,7 +157,7 @@
                     }
                 });
 
-                // --- 3. Update Chart ---
+                // --- Chart ---
                 const ctx = document.getElementById('tempChart').getContext('2d');
                 if (tempChartInstance) { tempChartInstance.destroy(); }
 
@@ -172,11 +194,8 @@
             }
         }
 
-        // Run immediately
         fetchWeatherData();
-        // Refresh every 5 minutes
         setInterval(fetchWeatherData, 300000); 
-
     </script>
 </body>
 </html>
