@@ -1,76 +1,50 @@
-<!DOCTYPE html>
-<html>
-<head>
-<title>Weather Dashboard</title>
-<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
-</head>
-<body>
-
-<h1>Live Weather Dashboard</h1>
-
-<canvas id="tempChart"></canvas>
-<canvas id="windChart"></canvas>
-
-<img id="cam1" width="300">
-<img id="cam2" width="300">
-<img id="cam3" width="300">
-<img id="cam4" width="300">
+<h2>Latest Weather Data</h2>
+<table id="dataTable" border="1">
+  <thead>
+    <tr>
+      <th>Timestamp</th>
+      <th>Wind Dir</th>
+      <th>Wind Speed</th>
+      <th>Temp</th>
+      <th>Humidity</th>
+      <th>Pressure</th>
+      <th>Lat</th>
+      <th>Lon</th>
+    </tr>
+  </thead>
+  <tbody></tbody>
+</table>
 
 <script>
 document.addEventListener("DOMContentLoaded", function() {
+  const SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTRDj9jqRbu3O_s8vYnC4cE62VDO7LPPaV8oQj1I_pPNxZdH2ijDnIPY9sxSkaerSOlW50UgU5l-WeR/pub?gid=0&single=true&output=csv";
 
-const SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTRDj9jqRbu3O_s8vYnC4cE62VDO7LPPaV8oQj1I_pPNxZdH2ijDnIPY9sxSkaerSOlW50UgU5l-WeR/pub?gid=0&single=true&output=csv";
-
-fetch(SHEET_URL)
-.then(res => res.text())
-.then(csv => {
-
-    Papa.parse(csv, {
+  fetch(SHEET_URL)
+    .then(res => res.text())
+    .then(csv => {
+      Papa.parse(csv, {
         header: true,
         skipEmptyLines: true,
         complete: function(results) {
+          const data = results.data;
+          const tbody = document.querySelector("#dataTable tbody");
 
-            const data = results.data;
-
-            function safeParseFloat(val) {
-                if (!val) return NaN;
-                const cleaned = val.replace(/[^0-9.-]/g, '');
-                return parseFloat(cleaned);
-            }
-
-            const temps = data.map(d => safeParseFloat(d["temp"])).filter(v => !isNaN(v)).slice(-20);
-            const winds = data.map(d => safeParseFloat(d["wind_speed"])).filter(v => !isNaN(v)).slice(-20);
-            const labels = data.map(d => d["timestamp"]).slice(-20);
-
-            new Chart(document.getElementById("tempChart"), {
-                type: 'line',
-                data: {
-                    labels: labels,
-                    datasets: [{ label: 'Temp (°C)', data: temps }]
-                }
-            });
-
-            new Chart(document.getElementById("windChart"), {
-                type: 'line',
-                data: {
-                    labels: labels,
-                    datasets: [{ label: 'Wind Speed (kt)', data: winds }]
-                }
-            });
-
+          data.slice(-20).forEach(row => {
+            const tr = document.createElement("tr");
+            tr.innerHTML = `
+              <td>${row.timestamp || ""}</td>
+              <td>${row.wind_dir || ""}</td>
+              <td>${row.wind_speed || ""}</td>
+              <td>${row.temp || ""}</td>
+              <td>${row.humidity || ""}</td>
+              <td>${row.pressure || ""}</td>
+              <td>${row.lat || ""}</td>
+              <td>${row.lon || ""}</td>
+            `;
+            tbody.appendChild(tr);
+          });
         }
+      });
     });
-
-});
-
-// Camera placeholders (safe now)
-document.getElementById("cam1").src = "cam1.jpg";
-document.getElementById("cam2").src = "cam2.jpg";
-document.getElementById("cam3").src = "cam3.jpg";
-document.getElementById("cam4").src = "cam4.jpg";
-
 });
 </script>
-
-</body>
-</html>
