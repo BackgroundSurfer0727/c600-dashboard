@@ -1,188 +1,85 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SBMA AWOS Live Weather Dashboard (Intellisense C600 Bridge)</title>
+    <title>SBMA AWOS Live Dashboard</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
     <style>
-        :root {
-            --bg-color: #f4f7f6;
-            --text-color: #333;
-            --panel-bg: #fff;
-            --accent: #2c3e50;
-        }
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: var(--bg-color); color: var(--text-color); margin: 0; padding: 20px; text-align: center; }
-        header { background-color: var(--accent); color: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-        h1 { margin: 0; font-size: 1.8rem; }
-        #timestamp { font-size: 0.9rem; color: #ddd; }
-        
-        .main-container { display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; max-width: 1400px; margin: 0 auto; }
-        
-        .panel { background-color: var(--panel-bg); border-radius: 8px; padding: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-        .data-panel { flex: 1 1 250px; display: flex; flex-direction: column; }
-        .large-panel { flex: 2 1 600px; }
-        
-        .data-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: auto; }
-        .data-box { border: 1px solid #eee; border-radius: 5px; padding: 10px; text-align: center; }
-        .data-label { font-size: 0.8rem; color: #777; font-weight: bold; }
-        .data-value { font-size: 1.5rem; color: var(--accent); font-weight: bold; }
-        
-        .img-container { width: 100%; height: 250px; background-color: #f0f0f0; border-radius: 5px; overflow: hidden; margin-top: 15px; position: relative; border: 1px solid #ddd;}
-        .img-container img { width: 100%; height: 100%; object-fit: cover; }
-        .img-label { position: absolute; bottom: 5px; left: 5px; background: rgba(0,0,0,0.6); color: white; padding: 2px 5px; font-size: 0.7rem; border-radius: 3px; }
-
-        .chart-container { position: relative; height: 350px; width: 100%; }
-
-        @media (max-width: 600px) {
-            .data-grid { grid-template-columns: 1fr; }
-            .img-container { height: 180px; }
-        }
+        body { font-family: sans-serif; background: #f4f7f6; text-align: center; padding: 20px; }
+        .container { display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; }
+        .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        #latest-image { width: 100%; max-width: 600px; border-radius: 5px; }
+        .chart-box { width: 100%; max-width: 800px; height: 400px; }
     </style>
 </head>
 <body>
+    <h1>SBMA AWOS Live (C600 Bridge)</h1>
+    <div id="status">Status: Connecting...</div>
 
-    <header>
-        <h1>SBMA AWOS Live Weather (C600 Bridge)</h1>
-        <div id="status">Status: Connecting...</div>
-    </header>
-
-    <div class="main-container">
-        <div class="panel data-panel">
-            <h2>Current Conditions</h2>
-            <div class="data-grid">
-                <div class="data-box"><div class="data-label">Temp (°C)</div><div class="data-value" id="val-temp">--</div></div>
-                <div class="data-box"><div class="data-label">Wind Speed (kt)</div><div class="data-value" id="val-wind">--</div></div>
-            </div>
-
-            <div class="img-container">
-                <img id="latest-image" src="" alt="Latest Weather Image" onerror="this.src='https://placehold.co/400x250?text=No+Image+Available'">
-                <div class="img-label">Latest Image</div>
-            </div>
-            <div id="timestamp" style="color: #666; margin-top:10px;">Data as of: --</div>
+    <div class="container">
+        <div class="card">
+            <h3>Current Conditions</h3>
+            <p>Temp: <span id="val-temp">--</span>°C</p>
+            <p>Wind: <span id="val-wind">--</span> kt</p>
+            <img id="latest-image" src="" onerror="this.src='https://placehold.co/600x400?text=Waiting+for+Image...'">
+            <p id="timestamp">Data as of: --</p>
         </div>
 
-        <div class="panel large-panel">
-            <h2>Temperature (Recent History)</h2>
-            <div class="chart-container">
-                <canvas id="tempChart"></canvas>
-            </div>
+        <div class="card chart-box">
+            <canvas id="tempChart"></canvas>
         </div>
     </div>
 
     <script>
-        // --- CONFIGURATION ---
         const sheetId = "1Vov42rnv4bPrtM5U4W6H7x4JRD9oSGJR6-riOevO58U";
         const feedUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json`;
+        let chart = null;
 
-        let tempChartInstance = null;
-
-        /**
-         * SAFETY CHECK: Forces a cell value to be a number.
-         * Fixes the "toFixed is not a function" error.
-         */
         function forceNum(cell, precision) {
-            if (!cell || cell.v === null || cell.v === undefined) return "--";
+            if (!cell || cell.v === null) return "--";
             let val = parseFloat(cell.v);
             return isNaN(val) ? "--" : val.toFixed(precision);
         }
 
-        async function fetchWeatherData() {
-            const statusEl = document.getElementById('status');
-            statusEl.innerText = "Status: Fetching latest data...";
-            
+        async function update() {
             try {
-                const response = await fetch(feedUrl);
-                const text = await response.text();
-                // Extract JSON from Google's response wrapper
-                const jsonString = text.substring(text.indexOf("(") + 1, text.lastIndexOf(")"));
-                const json = JSON.parse(jsonString);
+                const res = await fetch(feedUrl);
+                const text = await res.text();
+                const json = JSON.parse(text.substring(text.indexOf("(") + 1, text.lastIndexOf(")")));
                 const rows = json.table.rows;
 
-                if (!rows || rows.length === 0) {
-                    statusEl.innerText = "Status: No data found in Sheet.";
-                    return;
-                }
+                const COL_TS = 1, COL_WIND = 3, COL_TEMP = 4, COL_IMG = 7;
+                const latest = rows[rows.length - 1].c;
 
-                // Indices match the AppScript order:
-                // 0: Cloud Time, 1: Device Time, 2: Wind Dir, 3: Wind Speed, 4: Temp, 5: Image URL
-                const COL_TIMESTAMP = 1;
-                const COL_WIND = 3;
-                const COL_TEMP = 4;
-                const COL_IMAGE = 5;
-
-                const latestRow = rows[rows.length - 1].c;
-
-                // --- 1. Update UI Labels (Safe from toFixed errors) ---
-                document.getElementById('val-temp').innerText = forceNum(latestRow[COL_TEMP], 1);
-                document.getElementById('val-wind').innerText = forceNum(latestRow[COL_WIND], 1);
+                document.getElementById('val-temp').innerText = forceNum(latest[COL_TEMP], 1);
+                document.getElementById('val-wind').innerText = forceNum(latest[COL_WIND], 1);
+                document.getElementById('timestamp').innerText = "Last Update: " + (latest[COL_TS]?.f || "--");
                 
-                // Get timestamp (prefer formatted 'f', then value 'v')
-                const ts = latestRow[COL_TIMESTAMP] ? (latestRow[COL_TIMESTAMP].f || latestRow[COL_TIMESTAMP].v) : '--';
-                document.getElementById('timestamp').innerText = "Data as of: " + ts;
-                
-                const imageUrl = latestRow[COL_IMAGE] ? latestRow[COL_IMAGE].v : '';
-                document.getElementById('latest-image').src = imageUrl;
-                // Update the image source in the HTML
-                const imgElement = document.getElementById('latest-image');
-                if (imageUrl && imageUrl !== '') {
-                    imgElement.src = imageUrl;
-                } else {
-                    imgElement.src = 'https://placehold.co/400x250?text=No+Image+Available';
-                }
-                // --- 2. Prepare Chart Data (Last 24 readings) ---
-                const labels = [];
-                const tempValues = [];
-
-                rows.slice(-24).forEach(row => {
-                    if (row.c[COL_TEMP] && row.c[COL_TEMP].v !== null) {
-                        labels.push(row.c[COL_TIMESTAMP] ? (row.c[COL_TIMESTAMP].f || row.c[COL_TIMESTAMP].v) : '');
-                        tempValues.push(parseFloat(row.c[COL_TEMP].v));
+                // Fetch the image from the latest row that HAS an image URL
+                let lastImgUrl = "";
+                for (let i = rows.length - 1; i >= 0; i--) {
+                    if (rows[i].c[COL_IMG]?.v) {
+                        lastImgUrl = rows[i].c[COL_IMG].v;
+                        break;
                     }
-                });
+                }
+                document.getElementById('latest-image').src = lastImgUrl;
 
-                // --- 3. Update Chart ---
-                const ctx = document.getElementById('tempChart').getContext('2d');
-                if (tempChartInstance) { tempChartInstance.destroy(); }
+                const chartRows = rows.slice(-24);
+                const labels = chartRows.map(r => r.c[COL_TS]?.f || "");
+                const temps = chartRows.map(r => r.c[COL_TEMP]?.v || null);
 
-                tempChartInstance = new Chart(ctx, {
+                if (chart) chart.destroy();
+                chart = new Chart(document.getElementById('tempChart'), {
                     type: 'line',
-                    data: {
-                        labels: labels,
-                        datasets: [{
-                            label: 'Temp (°C)',
-                            data: tempValues,
-                            borderColor: '#3498db',
-                            backgroundColor: 'rgba(52, 152, 219, 0.2)',
-                            fill: true,
-                            tension: 0.3,
-                            pointRadius: 2,
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        scales: {
-                            y: { title: { display: true, text: '°C' } },
-                            x: { ticks: { autoSkip: true, maxTicksLimit: 8 } }
-                        },
-                        plugins: { legend: { display: false } }
-                    }
+                    data: { labels, datasets: [{ label: 'Temp (°C)', data: temps, borderColor: '#3498db', fill: true }] },
+                    options: { responsive: true, maintainAspectRatio: false }
                 });
-
-                statusEl.innerText = "Status: Live Data Active";
-
-            } catch (error) {
-                console.error("Fetch Error:", error);
-                statusEl.innerText = `Status: Error loading data.`;
-            }
+                document.getElementById('status').innerText = "Status: Live";
+            } catch (e) { console.error(e); }
         }
 
-        // Run immediately
-        fetchWeatherData();
-        // Refresh every 5 minutes
-        setInterval(fetchWeatherData, 300000); 
-
+        update();
+        setInterval(update, 300000); 
     </script>
 </body>
 </html>
