@@ -2,7 +2,7 @@
 <html>
 <head>
 <title>Weather Dashboard</title>
-<script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 </head>
 <body>
 
@@ -25,36 +25,39 @@ fetch(SHEET_URL)
 .then(res => res.text())
 .then(csv => {
 
-    const rows = csv.trim().split("\n").map(r => r.split(","));
+    Papa.parse(csv, {
+        header: true,
+        skipEmptyLines: true,
+        complete: function(results) {
 
-    const headers = rows[0];
-    const data = rows.slice(1).map(row => {
-        let obj = {};
-        headers.forEach((h, i) => obj[h.trim()] = row[i]);
-        return obj;
-    });
+            const data = results.data;
 
-    const temps = data.map(d => parseFloat(d["temp"])).slice(-20);
-    const winds = data.map(d => parseFloat(d["wind_speed"])).slice(-20);
-    const labels = data.map(d => d["timestamp"]).slice(-20);
+            console.log("Parsed data:", data); // 👈 debug
 
-    new Chart(document.getElementById("tempChart"), {
-        type: 'line',
-        data: {
-            labels: labels,
-            datasets: [{ label: 'Temp (°C)', data: temps }]
+            const temps = data.map(d => parseFloat(d["temp"])).filter(v => !isNaN(v)).slice(-20);
+            const winds = data.map(d => parseFloat(d["wind_speed"])).filter(v => !isNaN(v)).slice(-20);
+            const labels = data.map(d => d["timestamp"]).slice(-20);
+
+            new Chart(document.getElementById("tempChart"), {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{ label: 'Temp (°C)', data: temps }]
+                }
+            });
+
+            new Chart(document.getElementById("windChart"), {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{ label: 'Wind Speed (kt)', data: winds }]
+                }
+            });
+
         }
     });
 
-    new Chart(document.getElementById("windChart"), {
-        type: 'line',
-        data: {
-            labels: labels,
-            datasets: [{ label: 'Wind Speed (kt)', data: winds }]
-        }
-    });
-
-})
+});
 .catch(err => console.error("Fetch error:", err));
 
 // Camera placeholders (safe now)
