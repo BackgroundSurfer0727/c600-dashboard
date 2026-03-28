@@ -1,64 +1,43 @@
-<!DOCTYPE html>
-<html>
 <head>
-<title>Weather Dashboard</title>
-<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <title>Weather Dashboard</title>
+  <!-- Load PapaParse first -->
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 </head>
 <body>
+  <!-- Your table markup here -->
 
-<h1>Live Weather Dashboard</h1>
+  <!-- Your dashboard logic AFTER PapaParse -->
+  <script>
+    document.addEventListener("DOMContentLoaded", function() {
+      const SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTRDj9jqRbu3O_s8vYnC4cE62VDO7LPPaV8oQj1I_pPNxZdH2ijDnIPY9sxSkaerSOlW50UgU5l-WeR/pub?gid=0&single=true&output=csv";
 
-<h2>Latest Weather Data</h2>
-<table id="dataTable" border="1">
-  <thead>
-    <tr>
-      <th>Timestamp</th>
-      <th>Wind Dir</th>
-      <th>Wind Speed</th>
-      <th>Temp</th>
-      <th>Humidity</th>
-      <th>Pressure</th>
-      <th>Lat</th>
-      <th>Lon</th>
-    </tr>
-  </thead>
-  <tbody></tbody>
-</table>
+      fetch(SHEET_URL)
+        .then(res => res.text())
+        .then(csv => {
+          Papa.parse(csv, {
+            header: true,
+            skipEmptyLines: true,
+            complete: function(results) {
+              const data = results.data;
+              const tbody = document.querySelector("#dataTable tbody");
 
-<script>
-document.addEventListener("DOMContentLoaded", function() {
-  const SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTRDj9jqRbu3O_s8vYnC4cE62VDO7LPPaV8oQj1I_pPNxZdH2ijDnIPY9sxSkaerSOlW50UgU5l-WeR/pub?gid=0&single=true&output=csv";
-
-  fetch(SHEET_URL)
-    .then(res => res.text())
-    .then(csv => {
-      Papa.parse(csv, {
-        header: true,
-        skipEmptyLines: true,
-        complete: function(results) {
-          const data = results.data;
-          const tbody = document.querySelector("#dataTable tbody");
-
-          // Show last 20 rows
-          data.slice(-20).forEach(row => {
-            const tr = document.createElement("tr");
-            tr.innerHTML = `
-              <td>${row.timestamp || ""}</td>
-              <td>${row.wind_dir || ""}</td>
-              <td>${row.wind_speed || ""}</td>
-              <td>${row.temp || ""}</td>
-              <td>${row.humidity || ""}</td>
-              <td>${row.pressure || ""}</td>
-              <td>${row.lat || ""}</td>
-              <td>${row.lon || ""}</td>
-            `;
-            tbody.appendChild(tr);
+              data.slice(-20).forEach(row => {
+                const tr = document.createElement("tr");
+                tr.innerHTML = `
+                  <td>${row.timestamp || ""}</td>
+                  <td>${row.wind_dir || ""}</td>
+                  <td>${row.wind_speed || ""}</td>
+                  <td>${row.temp || ""}</td>
+                  <td>${row.humidity || ""}</td>
+                  <td>${row.pressure || ""}</td>
+                  <td>${row.lat || ""}</td>
+                  <td>${row.lon || ""}</td>
+                `;
+                tbody.appendChild(tr);
+              });
+            }
           });
-        }
-      });
+        });
     });
-});
-</script>
-
+  </script>
 </body>
-</html>
