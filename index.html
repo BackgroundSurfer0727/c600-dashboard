@@ -1,55 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
 <head>
-  <title>Weather Dashboard</title>
-  <!-- Load PapaParse first -->
-  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SBMA AWOS Live Weather Dashboard (Intellisense C600 Bridge)</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+    <style>
+        :root {
+            --bg-color: #f4f7f6;
+            --text-color: #333;
+            --panel-bg: #fff;
+            --accent: #2c3e50;
+        }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: var(--bg-color); color: var(--text-color); margin: 0; padding: 20px; text-align: center; }
+        header { background-color: var(--accent); color: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        h1 { margin: 0; font-size: 1.8rem; }
+        #timestamp { font-size: 0.9rem; color: #ddd; }
+        
+        .main-container { display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; max-width: 1400px; margin: 0 auto; }
+        
+        .panel { background-color: var(--panel-bg); border-radius: 8px; padding: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .data-panel { flex: 1 1 250px; display: flex; flex-direction: column; }
+        .large-panel { flex: 2 1 600px; }
+        
+        .data-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: auto; }
+        .data-box { border: 1px solid #eee; border-radius: 5px; padding: 10px; text-align: center; }
+        .data-label { font-size: 0.8rem; color: #777; font-weight: bold; }
+        .data-value { font-size: 1.5rem; color: var(--accent); font-weight: bold; }
+        
+        .img-container { width: 100%; height: 250px; background-color: #f0f0f0; border-radius: 5px; overflow: hidden; margin-top: 15px; position: relative; border: 1px solid #ddd;}
+        .img-container img { width: 100%; height: 100%; object-fit: cover; } /* This ensures the image covers the container */
+        .img-label { position: absolute; bottom: 5px; left: 5px; background: rgba(0,0,0,0.6); color: white; padding: 2px 5px; font-size: 0.7rem; border-radius: 3px; }
+
+        .chart-container { position: relative; height: 350px; width: 100%; }
+
+        @media (max-width: 600px) {
+            .data-grid { grid-template-columns: 1fr; }
+            .img-container { height: 180px; }
+        }
+        
+    </style>
 </head>
 <body>
-  <!-- Your table markup here -->
 
-  <!-- Your dashboard logic AFTER PapaParse -->
-<script>
-document.addEventListener("DOMContentLoaded", function() {
-  const SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTRDj9jqRbu3O_s8vYnC4cE62VDO7LPPaV8oQj1I_pPNxZdH2ijDnIPY9sxSkaerSOlW50UgU5l-WeR/pub?gid=0&single=true&output=csv";
+    <header>
+        <h1>SBMA AWOS Live Weather (C600 Bridge)</h1>
+        <div id="status">Status: Connecting...</div>
+    </header>
 
-  fetch(SHEET_URL)
-    .then(res => res.text())
-    .then(csv => {
-      Papa.parse(csv, {
-        header: true,
-        skipEmptyLines: true,
-        complete: function(results) {
-          const data = results.data;
-          if (data.length === 0) {
-            console.log("No data found in sheet.");
-            return;
-          }
+    <div class="main-container">
+        <div class="panel data-panel">
+            <h2>Current Conditions</h2>
+            
+            <div class="data-grid">
+                <div class="data-box"><div class="data-label">Temp (°C)</div><div class="data-value" id="val-temp">--</div></div>
+                <div class="data-box"><div class="data-label">Wind Speed (m/s)</div><div class="data-value" id="val-wind">--</div></div>
+            </div>
 
-          const headers = Object.keys(data[0]);
-          const thead = document.querySelector("#dataTable thead");
-          const tbody = document.querySelector("#dataTable tbody");
+            <div class="img-container">
+                <img id="latest-image" src="" alt="Latest Weather Image" onerror="this.src='https://placehold.co/400x250?text=No+Image+Available'">
+                <div class="img-label">Latest Image</div>
+            </div>
+            <div id="timestamp" style="color: #666; margin-top:10px;">Data as of: --</div>
+        </div>
 
-          // Build header row
-          const headerRow = document.createElement("tr");
-          headers.forEach(h => {
-            const th = document.createElement("th");
-            th.textContent = h;
-            headerRow.appendChild(th);
-          });
-          thead.appendChild(headerRow);
+        <div class="panel large-panel">
+            <h2>Temperature (Past 24 Hours)</h2>
+            <div class="chart-container">
+                <canvas id="tempChart"></canvas>
+            </div>
+        </div>
+    </div>
 
-          // Build last 20 rows
-          data.slice(-20).forEach(row => {
-            const tr = document.createElement("tr");
-            headers.forEach(h => {
-              const td = document.createElement("td");
-              td.textContent = row[h] || "";
-              tr.appendChild(td);
-            });
-            tbody.appendChild(tr);
-          });
+    <script>
+        // --- CONFIGURATION (MUST UPDATE) ---
+        // 1. Enter the ID of your Google Sheet (from the URL).
+        //    Example: https://docs.google.com/spreadsheets/d/YOUR_SHEET_ID_HERE/edit
+        const sheetId = "1Vov42rnv4bPrtM5U4W6H7x4JRD9oSGJR6-riOevO58U";
+        // ------------------------------------
+
+        // Construct the URL for the Google Sheets JSON API (the robust way).
+        const feedUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json`;
+
+        let tempChartInstance = null;
+
+        async function fetchWeatherData() {
+            const statusEl = document.getElementById('status');
+            statusEl.innerText = "Status: Fetching latest data...";
+            
+            try {
+                // Fetch the data
+                const response = await fetch(feedUrl);
+                
+                // This handles a quirk of the Google Visualization API, which prefixes JSON with an arbitrary string.
+                const text = await response.text();
+                const jsonString = text.substring(text.indexOf("(") + 1, text.lastIndexOf(")"));
+                const json = JSON.parse(jsonString);
+                const rows = json.table.rows;
+
+                if (!rows || rows.length === 0) {
+                    statusEl.innerText = "Status: No data found in Sheet.";
+                    return;
+                }
+
+                // --- 1. Map Data and Extract latest ---
+                // We define which column index (0-indexed) in your Sheet holds which piece of data.
+                // 0=Timestamp_Uploaded, 1=Device_Timestamp, 2=Date, 3=Time, 4=Wdir, 5=Wspd, 6=Temp, 7=Image
+                const COL_TEMP = 6;
+                const COL_WIND = 5;
+                const COL_IMAGE = 7;
+                const COL_TIMESTAMP = 1;
+
+                // Process all rows to extract timestamps and temperatures for the chart
+                const dataSet = rows.map(row => {
+                    return {
+                        // The gviz API returns cell values in 'c', and formatted values in 'f'
+                        timestamp: row.c[COL_TIMESTAMP] ? row.c[COL_TIMESTAMP].f : '--',
+                        temp: row.c[COL_TEMP] ? row.c[COL_TEMP].v : null
+                    };
+                }).filter(d => d.temp !== null); // Filter out rows missing temperature data
+
+                const latestEntry = rows[rows.length - 1].c;
+
+                // --- 2. Update UI (HTML) ---
+                document.getElementById('val-temp').innerText = latestEntry[COL_TEMP] ? latestEntry[COL_TEMP].v.toFixed(1) : '--';
+                document.getElementById('val-wind').innerText = latestEntry[COL_WIND] ? latestEntry[COL_WIND].v.toFixed(1) : '--';
+                document.getElementById('timestamp').innerText = "Data as of: " + (latestEntry[COL_TIMESTAMP] ? latestEntry[COL_TIMESTAMP].f : '--');
+                
+                // Set the image src. If it's missing, the onerror placeholder will trigger.
+                const imageUrl = latestEntry[COL_IMAGE] ? latestEntry[COL_IMAGE].v : '';
+                document.getElementById('latest-image').src = imageUrl;
+
+                // --- 3. Update Chart (Chart.js v4) ---
+                const ctx = document.getElementById('tempChart').getContext('2d');
+                
+                if (tempChartInstance) {
+                    tempChartInstance.destroy(); // Always destroy the old chart before rendering new data
+                }
+
+                tempChartInstance = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: dataSet.map(d => d.timestamp),
+                        datasets: [{
+                            label: 'Temp (°C)',
+                            data: dataSet.map(d => d.temp),
+                            borderColor: '#3498db',
+                            backgroundColor: 'rgba(52, 152, 219, 0.2)',
+                            fill: true,
+                            tension: 0.3,
+                            pointRadius: 1,
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            x: {
+                                display: true,
+                                title: { display: true, text: 'Time' },
+                                ticks: { autoSkip: true, maxTicksLimit: 12 }
+                            },
+                            y: {
+                                display: true,
+                                title: { display: true, text: 'Temperature (°C)' },
+                                beginAtZero: false
+                            }
+                        },
+                        plugins: {
+                            legend: { display: false }
+                        }
+                    }
+                });
+
+                statusEl.innerText = "Status: Live Data Active";
+                console.log("Weather data successfully loaded and visualized.");
+
+            } catch (error) {
+                console.error("Error fetching data:", error);
+                statusEl.innerText = `Status: Error loading data.`;
+            }
         }
-      });
-    });
-});
-</script>
+
+        // Initial Load
+        fetchWeatherData();
+
+        // Optional: Auto-refresh the dashboard data every 5 minutes (300,000ms)
+        // setInterval(fetchWeatherData, 300000); 
+
+    </script>
 </body>
+</html>
