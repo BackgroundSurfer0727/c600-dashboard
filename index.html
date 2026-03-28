@@ -32,10 +32,14 @@ fetch(SHEET_URL)
 
             const data = results.data;
 
-            console.log("Parsed data:", data); // 👈 debug
+            function safeParseFloat(val) {
+                if (!val) return NaN;
+                const cleaned = val.replace(/[^0-9.-]/g, '');
+                return parseFloat(cleaned);
+            }
 
-            const temps = data.map(d => parseFloat(d["temp"])).filter(v => !isNaN(v)).slice(-20);
-            const winds = data.map(d => parseFloat(d["wind_speed"])).filter(v => !isNaN(v)).slice(-20);
+            const temps = data.map(d => safeParseFloat(d["temp"])).filter(v => !isNaN(v)).slice(-20);
+            const winds = data.map(d => safeParseFloat(d["wind_speed"])).filter(v => !isNaN(v)).slice(-20);
             const labels = data.map(d => d["timestamp"]).slice(-20);
 
             new Chart(document.getElementById("tempChart"), {
