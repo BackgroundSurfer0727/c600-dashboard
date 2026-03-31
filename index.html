@@ -273,8 +273,15 @@ async function load(){
   const headers = json.table.cols.map(c=>c.label);
   const latest = rows[rows.length-1].c;
 
-  const tsRaw = latest[headers.indexOf("Timestamp (UTC)")]?.v;
+  const tsIdx = headers.findIndex(h => h && h.toLowerCase().includes("timestamp"));
+  const tsRaw = tsIdx !== -1 ? latest[tsIdx]?.v : null;
+  
   const ts = toManila(tsRaw);
+  
+  if (!ts) {
+    console.error("Invalid timestamp:", tsRaw);
+    return;
+  }
 
   document.getElementById("title").innerText =
     "SBMA AWOS Live Weather (C600 Bridge) | " + format(ts);
