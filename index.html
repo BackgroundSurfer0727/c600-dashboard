@@ -51,7 +51,7 @@
   </div>
 
   <script>
-    const sheetId = "1ZjECyZKnnqzhWvJjHq6WHpgNho2mb9Eml0gInIM5bTk"; // replace with your Google Sheet ID
+    const sheetId = "1ZjECyZKnnqzhWvJjHq6WHpgNho2mb9Eml0gInIM5bTk";
     const feedUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json`;
 
     function processImageUrl(url) {
@@ -81,11 +81,12 @@
 
         const latestRow = rows[rows.length - 1].c;
 
-        // --- Show all 30 data values ---
+        // --- Show all data values except timestamp and images ---
         const grid = document.getElementById('data-grid');
         grid.innerHTML = '';
         headers.forEach((h, i) => {
           if (!h) return;
+          if (h.includes("Timestamp") || h.startsWith("Image")) return; // skip timestamp and images
           const val = latestRow[i] ? latestRow[i].v : '--';
           const box = document.createElement('div');
           box.className = 'data-box';
@@ -102,11 +103,12 @@
         const ts = latestRow[headers.indexOf("Timestamp (UTC)")]?.v || '--';
         document.getElementById('timestamp').innerText = "Data as of: " + ts;
 
-        // --- Build 24‑hour charts ---
+        // --- Build 24‑hour charts for all fields except timestamp and images ---
         const chartsContainer = document.getElementById('charts-container');
         chartsContainer.innerHTML = '';
         headers.forEach((h, i) => {
-          if (!h || h.startsWith("Image")) return; // skip image columns
+          if (!h) return;
+          if (h.includes("Timestamp") || h.startsWith("Image")) return; // skip timestamp and images
           const labels = [];
           const values = [];
           rows.slice(-288).forEach(row => { // 288 rows = 24h if 5‑min interval
