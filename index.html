@@ -154,12 +154,52 @@ const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:j
 
 // ===== TIME =====
 function toManila(utc) {
-  const d = new Date(utc);
-  return new Date(d.getTime()+8*3600000);
+  if (!utc) return null;
+
+  let d;
+
+  // Try direct parse first
+  d = new Date(utc);
+
+  // If invalid, try manual parsing
+  if (isNaN(d)) {
+    try {
+      // Try splitting manually (handles "YYYY-MM-DD HH:MM:SS")
+      const parts = utc.split(/[- :/]/);
+
+      if (parts.length >= 5) {
+        let year, month, day, hour, min, sec;
+
+        // Detect format
+        if (parts[0].length === 4) {
+          // YYYY-MM-DD
+          [year, month, day, hour, min, sec] = parts;
+        } else {
+          // DD/MM/YYYY or MM/DD/YYYY fallback
+          [day, month, year, hour, min, sec] = parts;
+        }
+
+        d = new Date(year, month - 1, day, hour || 0, min || 0, sec || 0);
+      }
+    } catch (e) {
+      console.error("Date parse failed:", utc);
+      return null;
+    }
+  }
+
+  if (isNaN(d)) return null;
+
+  // Add Manila offset
+  return new Date(d.getTime() + 8 * 3600000);
 }
 
-function format(d){
-  return d.toISOString().replace("T"," ").substring(0,19);
+function format(d) {
+  if (!d || isNaN(d)) return "--";
+
+  const pad = n => String(n).padStart(2, '0');
+
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ` +
+         `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 }
 
 // ===== DAY NIGHT =====
