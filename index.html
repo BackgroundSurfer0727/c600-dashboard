@@ -1,270 +1,238 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SBMA AWOS Dashboard</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SBMA AWOS Live Weather Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+  <style>
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f4f7f6; margin: 0; padding: 20px; color: #333; }
+    header { background: #2c3e50; color: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+    h1 { margin: 0; font-size: 1.8rem; }
+    h2 { border-left: 5px solid #3498db; padding-left: 10px; margin-top: 30px; }
+    #status { font-size: 0.9rem; color: #bdc3c7; margin-top: 5px; }
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+    .main-container { max-width: 1400px; margin: auto; }
+    
+    /* Responsive Grid for Data Boxes */
+    .data-grid-30 { 
+      display: grid; 
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); 
+      gap: 15px; 
+    }
+    .data-box { 
+      background: #fff; 
+      border: 1px solid #e0e0e0; 
+      border-radius: 8px; 
+      padding: 15px; 
+      text-align: center;
+      transition: transform 0.2s;
+    }
+    .data-box:hover { transform: translateY(-3px); box-shadow: 0 4px 8px rgba(0,0,0,0.05); }
+    .data-label { font-size: 0.75rem; color: #7f8c8d; font-weight: bold; text-transform: uppercase; margin-bottom: 5px; }
+    .data-value { font-size: 1.4rem; color: #2c3e50; font-weight: bold; }
 
-<style>
-body { font-family: Segoe UI; margin:0; background:#f4f7f6; }
+    /* Camera Feed Grid */
+    .images-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; margin-top: 20px; }
+    @media (max-width: 768px) { .images-grid { grid-template-columns: 1fr; } }
+    
+    .img-container { 
+      aspect-ratio: 16 / 9; 
+      background: #222; 
+      border-radius: 8px; 
+      overflow: hidden; 
+      position: relative; 
+      border: 3px solid #fff;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    .img-container img { width: 100%; height: 100%; object-fit: cover; }
+    .img-label { position: absolute; bottom: 10px; left: 10px; background: rgba(0,0,0,0.7); color: white; padding: 4px 10px; font-size: 0.8rem; border-radius: 4px; }
 
-header { background:#2c3e50; color:white; padding:20px; }
+    /* Charts Section */
+    .charts-container { margin-top: 30px; }
+    .chart-box { background: #fff; border: 1px solid #eee; border-radius: 8px; padding: 20px; margin-bottom: 25px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
+    .chart-box h3 { margin-top: 0; color: #34495e; font-size: 1.1rem; }
+    .chart-box canvas { width: 100% !important; height: 350px !important; }
 
-#topbar { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; }
-
-#title { font-size:1.5rem; font-weight:bold; }
-
-#icons img { width:26px; margin-right:8px; }
-
-.button { background:#27ae60; padding:8px 14px; border-radius:6px; color:white; text-decoration:none; }
-
-.data-grid {
-  display:grid;
-  grid-template-columns:repeat(auto-fill,minmax(180px,1fr));
-  gap:12px;
-  padding:15px;
-}
-
-.card { background:white; padding:12px; border-radius:8px; text-align:center; }
-
-.value { font-size:1.3rem; font-weight:bold; }
-
-.images {
-  display:grid;
-  grid-template-columns:1fr 1fr;
-  gap:10px;
-  padding:15px;
-}
-
-.images img { width:100%; border-radius:8px; }
-
-.chart-box {
-  background:white;
-  margin:15px;
-  padding:15px;
-  border-radius:8px;
-}
-</style>
+    #timestamp { font-weight: bold; color: #e67e22; background: #fff; display: inline-block; padding: 5px 15px; border-radius: 20px; margin-top: 15px; }
+  </style>
 </head>
-
 <body>
 
-<header>
-  <div id="topbar">
-    <div>
-      <div id="title">SBMA AWOS Live Weather (C600 Bridge)</div>
-      <div id="icons" style="margin-top:8px;"></div>
+  <header>
+    <h1>SBMA AWOS Live Weather (C600 Bridge)</h1>
+    <div id="status">Status: Initializing...</div>
+  </header>
+
+  <div class="main-container">
+    <h2>Latest Conditions</h2>
+    <div id="data-grid" class="data-grid-30"></div>
+
+    <div id="timestamp">Data as of: --</div>
+
+    <h2>Live Camera Feeds</h2>
+    <div class="images-grid">
+      <div class="img-container"><img id="img-cam1" alt="Cam 1"><div class="img-label">Station View 1</div></div>
+      <div class="img-container"><img id="img-cam2" alt="Cam 2"><div class="img-label">Station View 2</div></div>
+      <div class="img-container"><img id="img-cam3" alt="Cam 3"><div class="img-label">Station View 3</div></div>
+      <div class="img-container"><img id="img-cam4" alt="Cam 4"><div class="img-label">Station View 4</div></div>
     </div>
 
-    <a class="button"
-       href="https://docs.google.com/spreadsheets/d/1ZjECyZKnnqzhWvJjHq6WHpgNho2mb9Eml0gInIM5bTk/export?format=csv"
-       target="_blank">
-       EXPORT CSV
-    </a>
+    <h2>Weather Trends (Last 24 Hours)</h2>
+    <div id="charts-container" class="charts-container"></div>
   </div>
-</header>
 
-<div id="data-grid" class="data-grid"></div>
+  <script>
+    const sheetId = "1ZjECyZKnnqzhWvJjHq6WHpgNho2mb9Eml0gInIM5bTk";
+    const feedUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json`;
 
-<div class="images">
-  <img id="img1"><img id="img2"><img id="img3"><img id="img4">
-</div>
+    // Helper to handle Google Drive image thumbnails
+    function processImageUrl(url) {
+      if (!url) return '';
+      if (url.includes("id=")) {
+        const parts = url.split("id=");
+        const fileId = parts[1].split("&")[0];
+        return `https://drive.google.com/thumbnail?id=${fileId}&sz=w1000`;
+      }
+      return url;
+    }
 
-<div id="charts"></div>
+    async function fetchWeatherData() {
+      const statusEl = document.getElementById('status');
+      statusEl.innerText = "Status: Updating data...";
+      
+      try {
+        const response = await fetch(feedUrl);
+        const text = await response.text();
+        const jsonString = text.substring(text.indexOf("(") + 1, text.lastIndexOf(")"));
+        const json = JSON.parse(jsonString);
+        
+        const rows = json.table.rows;
+        const headers = json.table.cols.map(c => c.label);
 
-<script>
-const sheetId = "1ZjECyZKnnqzhWvJjHq6WHpgNho2mb9Eml0gInIM5bTk";
-const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json`;
+        if (!rows || rows.length === 0) {
+          statusEl.innerText = "Status: No data available.";
+          return;
+        }
 
-let charts = [];
+        const latestRow = rows[rows.length - 1].c;
 
-/* UTIL */
-function formatUTC(raw){ return raw || "--"; }
+        // 1. Fill Data Grid
+        const grid = document.getElementById('data-grid');
+        grid.innerHTML = '';
+        headers.forEach((h, i) => {
+          if (!h || h.toLowerCase().includes("timestamp") || h.toLowerCase().startsWith("image")) return;
+          const val = latestRow[i] ? (latestRow[i].f || latestRow[i].v) : '--';
+          const box = document.createElement('div');
+          box.className = 'data-box';
+          box.innerHTML = `<div class="data-label">${h}</div><div class="data-value">${val}</div>`;
+          grid.appendChild(box);
+        });
 
-function colIndex(headers, name){
-  return headers.findIndex(h => h && h.toLowerCase().includes(name.toLowerCase()));
-}
+        // 2. Update Images
+        const camIds = ['Image_Cam1', 'Image_Cam2', 'Image_Cam3', 'Image_Cam4'];
+        camIds.forEach((id, index) => {
+          const colIdx = headers.indexOf(id);
+          if (colIdx !== -1) {
+            document.getElementById(`img-cam${index+1}`).src = processImageUrl(latestRow[colIdx]?.v || '');
+          }
+        });
 
-function getSeries(rows, idx){
-  return rows.map(r => r.c[idx]?.v ?? null);
-}
+        // 3. Update Timestamp
+        const tsIdx = headers.indexOf("Timestamp (UTC)");
+        const ts = latestRow[tsIdx] ? (latestRow[tsIdx].f || latestRow[tsIdx].v) : '--';
+        document.getElementById('timestamp').innerText = "Data as of: " + ts;
 
-function getLabels(rows, headers){
-  const i = colIndex(headers,"timestamp");
-  return rows.map(r => r.c[i]?.v || "");
-}
+        // 4. Build Charts
+        const chartsContainer = document.getElementById('charts-container');
+        chartsContainer.innerHTML = ''; // Clear previous charts
 
-/* WIND ROSE */
-function windRose(angle){
-  return `
-  <svg width="80" height="80">
-    <circle cx="40" cy="40" r="35" stroke="gray" fill="none"/>
-    <line x1="40" y1="40"
-          x2="${40 + 30*Math.cos((angle-90)*Math.PI/180)}"
-          y2="${40 + 30*Math.sin((angle-90)*Math.PI/180)}"
-          stroke="red" stroke-width="3"/>
-    <text x="38" y="12">N</text>
-    <text x="70" y="42">E</text>
-    <text x="38" y="78">S</text>
-    <text x="5" y="42">W</text>
-  </svg>`;
-}
+        /**
+         * buildChart logic
+         * Automatically groups by unit in header string: e.g. "(kt)" or "(C)"
+         */
+        function buildChart(title, fieldList) {
+          const lastData = rows.slice(-288); // Approx last 24 hrs
+          const labels = lastData.map(r => r.c[tsIdx]?.f || r.c[tsIdx]?.v || '');
+          
+          let datasets = [];
+          let seenUnits = [];
 
-/* ICONS */
-function setIcons(row, headers){
-  const icons = document.getElementById("icons");
-  icons.innerHTML = "";
+          fieldList.forEach((fieldName) => {
+            const colIdx = headers.indexOf(fieldName);
+            if (colIdx === -1) return;
 
-  const val = n => {
-    const i = colIndex(headers,n);
-    return i !== -1 ? parseFloat(row[i]?.v) : 0;
-  };
+            // Extract unit between parentheses
+            const match = fieldName.match(/\(([^)]+)\)/);
+            const unit = match ? match[1] : 'val';
+            
+            if (!seenUnits.includes(unit)) seenUnits.push(unit);
+            const isSecondAxis = seenUnits.indexOf(unit) > 0;
 
-  const heat = val("Heat Index");
-  const rain = val("Precip");
-  const hum = val("Humidity");
-  const wind = val("Wind Speed");
-  const voltage = val("Voltage");
+            datasets.push({
+              label: fieldName,
+              data: lastData.map(r => r.c[colIdx]?.v || null),
+              borderColor: ['#3498db', '#e74c3c', '#2ecc71', '#f39c12', '#9b59b6'][datasets.length % 5],
+              backgroundColor: 'transparent',
+              borderWidth: 2,
+              pointRadius: 0,
+              tension: 0.3,
+              yAxisID: isSecondAxis ? 'y1' : 'y'
+            });
+          });
 
-  function add(src){
-    const img = document.createElement("img");
-    img.src = src;
-    icons.appendChild(img);
-  }
+          if (datasets.length === 0) return;
 
-  if(heat > 30) add("https://cdn-icons-png.flaticon.com/512/869/869869.png");
-  if(rain > 0) add("https://cdn-icons-png.flaticon.com/512/1163/1163624.png");
-  if(hum > 80) add("https://cdn-icons-png.flaticon.com/512/414/414825.png");
-  if(rain > 3 && hum > 85 && wind > 10)
-    add("https://cdn-icons-png.flaticon.com/512/1146/1146860.png");
-  if(voltage > 5)
-    add("https://cdn-icons-png.flaticon.com/512/3103/3103446.png");
-}
+          const chartBox = document.createElement('div');
+          chartBox.className = 'chart-box';
+          chartBox.innerHTML = `<h3>${title}</h3><canvas></canvas>`;
+          chartsContainer.appendChild(chartBox);
 
-/* CHART BUILDER */
-function makeChart(title, labels, datasets){
-  const container = document.createElement("div");
-  container.className = "chart-box";
+          new Chart(chartBox.querySelector('canvas'), {
+            type: 'line',
+            data: { labels, datasets },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              interaction: { mode: 'index', intersect: false },
+              scales: {
+                x: { ticks: { maxTicksLimit: 12 } },
+                y: { 
+                  type: 'linear', 
+                  display: true, 
+                  position: 'left',
+                  title: { display: true, text: seenUnits[0] || '' } 
+                },
+                y1: { 
+                  type: 'linear', 
+                  display: seenUnits.length > 1, 
+                  position: 'right',
+                  grid: { drawOnChartArea: false },
+                  title: { display: true, text: seenUnits[1] || '' }
+                }
+              }
+            }
+          });
+        }
 
-  const canvas = document.createElement("canvas");
-  container.appendChild(canvas);
+        // Configuration of the 5 Charts
+        buildChart("Wind Metrics", ["Wind Speed (kt)", "Max Wind Speed (kt)", "Wind Chill (C)"]);
+        buildChart("Precipitation & Humidity", ["Precip (in/hr)", "Relative Humidity"]);
+        buildChart("Temperature Profile", ["Temp (C)", "Dew Point (C)", "Relative Humidity", "Heat Index (C)"]);
+        buildChart("Atmospheric Pressure & Altitude", ["Altimeter (inHg)", "Elevation (ft)", "Station Pressure (inHg)", "Pressure Alt (ft)", "Density Alt (ft)"]);
+        buildChart("System Diagnostics", ["Voltage"]);
 
-  document.getElementById("charts").appendChild(container);
-
-  const chart = new Chart(canvas, {
-    type: "line",
-    data: { labels, datasets },
-    options: {
-      responsive:true,
-      plugins:{ title:{ display:true, text:title }},
-      interaction:{ mode:"index", intersect:false },
-      scales:{
-        y:{ beginAtZero:false },
-        y1:{ position:"right", grid:{ drawOnChartArea:false }}
+        statusEl.innerText = "Status: Live (Refreshing every 5 mins)";
+      } catch (error) {
+        console.error("Dashboard Error:", error);
+        statusEl.innerText = "Status: Error fetching data. Check Console.";
       }
     }
-  });
 
-  charts.push(chart);
-}
-
-/* LOAD */
-async function load(){
-  charts.forEach(c=>c.destroy());
-  charts = [];
-  document.getElementById("charts").innerHTML = "";
-
-  const res = await fetch(url);
-  const text = await res.text();
-  const json = JSON.parse(text.substring(text.indexOf("(")+1,text.lastIndexOf(")")));
-
-  const rows = json.table.rows;
-  const headers = json.table.cols.map(c=>c.label);
-  const latest = rows[rows.length-1].c;
-
-  const labels = getLabels(rows, headers);
-
-  document.getElementById("title").innerText =
-    "SBMA AWOS Live Weather (C600 Bridge) | " +
-    formatUTC(labels[labels.length-1]) + " (UTC)";
-
-  setIcons(latest, headers);
-
-  /* GRID */
-  const grid = document.getElementById("data-grid");
-  grid.innerHTML = "";
-
-  headers.forEach((h,i)=>{
-    if(!h || h.includes("Image") || h.toLowerCase().includes("timestamp")) return;
-
-    const val = latest[i]?.v ?? "--";
-    const card = document.createElement("div");
-    card.className="card";
-
-    if(h.toLowerCase().includes("wind dir")){
-      card.innerHTML = `<div>${h}</div><div class="value">${val}°</div>${windRose(val)}`;
-    } else {
-      card.innerHTML = `<div>${h}</div><div class="value">${val}</div>`;
-    }
-
-    grid.appendChild(card);
-  });
-
-  /* IMAGES */
-  ["Image_Cam1","Image_Cam2","Image_Cam3","Image_Cam4"].forEach((id,i)=>{
-    const idx = headers.indexOf(id);
-    if(idx !== -1){
-      document.getElementById("img"+(i+1)).src =
-        latest[idx]?.v?.replace("open?id=","thumbnail?id=");
-    }
-  });
-
-  /* CHARTS */
-
-  makeChart("Wind",
-    labels,
-    [
-      {label:"Wind Speed", data:getSeries(rows,colIndex(headers,"Wind Speed")), yAxisID:"y"},
-      {label:"Max Wind", data:getSeries(rows,colIndex(headers,"Max Wind")), yAxisID:"y"},
-      {label:"Wind Chill", data:getSeries(rows,colIndex(headers,"Wind Chill")), yAxisID:"y1"}
-    ]);
-
-  makeChart("Rain & Humidity",
-    labels,
-    [
-      {label:"Precip", data:getSeries(rows,colIndex(headers,"Precip")), yAxisID:"y"},
-      {label:"Humidity", data:getSeries(rows,colIndex(headers,"Humidity")), yAxisID:"y1"}
-    ]);
-
-  makeChart("Temperature",
-    labels,
-    [
-      {label:"Temp", data:getSeries(rows,colIndex(headers,"Temp")), yAxisID:"y"},
-      {label:"Dew Point", data:getSeries(rows,colIndex(headers,"Dew")), yAxisID:"y"},
-      {label:"Heat Index", data:getSeries(rows,colIndex(headers,"Heat")), yAxisID:"y"},
-      {label:"Humidity", data:getSeries(rows,colIndex(headers,"Humidity")), yAxisID:"y1"}
-    ]);
-
-  makeChart("Pressure",
-    labels,
-    [
-      {label:"Altimeter", data:getSeries(rows,colIndex(headers,"Altimeter")), yAxisID:"y"},
-      {label:"Station Pressure", data:getSeries(rows,colIndex(headers,"Station Pressure")), yAxisID:"y"},
-      {label:"Density Alt", data:getSeries(rows,colIndex(headers,"Density")), yAxisID:"y1"}
-    ]);
-
-  makeChart("Voltage",
-    labels,
-    [
-      {label:"Voltage", data:getSeries(rows,colIndex(headers,"Voltage")), yAxisID:"y"}
-    ]);
-}
-
-load();
-setInterval(load,300000);
-</script>
-
+    // Run on load
+    fetchWeatherData();
+    // Refresh every 5 minutes
+    setInterval(fetchWeatherData, 300000);
+  </script>
 </body>
 </html>
