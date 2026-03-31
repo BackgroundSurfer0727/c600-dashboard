@@ -2,51 +2,83 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>SBMA AWOS Live Weather Dashboard</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
   <style>
-    body { font-family: 'Segoe UI', sans-serif; background: #f4f7f6; margin: 0; padding: 20px; }
-    header { background: #2c3e50; color: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
-    h1 { margin: 0; }
-    #status { font-size: 0.9rem; color: #ddd; }
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f4f7f6; margin: 0; padding: 20px; color: #333; }
+    header { background: #2c3e50; color: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+    h1 { margin: 0; font-size: 1.8rem; }
+    h2 { border-left: 5px solid #3498db; padding-left: 10px; margin-top: 30px; }
+    #status { font-size: 0.9rem; color: #bdc3c7; margin-top: 5px; }
 
     .main-container { max-width: 1400px; margin: auto; }
-    .data-grid-30 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-    .data-box { background: #fff; border: 1px solid #eee; border-radius: 5px; padding: 10px; }
-    .data-label { font-size: 0.8rem; color: #777; font-weight: bold; }
-    .data-value { font-size: 1.2rem; color: #2c3e50; font-weight: bold; }
+    
+    /* Responsive Grid for Data Boxes */
+    .data-grid-30 { 
+      display: grid; 
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); 
+      gap: 15px; 
+    }
+    .data-box { 
+      background: #fff; 
+      border: 1px solid #e0e0e0; 
+      border-radius: 8px; 
+      padding: 15px; 
+      text-align: center;
+      transition: transform 0.2s;
+    }
+    .data-box:hover { transform: translateY(-3px); box-shadow: 0 4px 8px rgba(0,0,0,0.05); }
+    .data-label { font-size: 0.75rem; color: #7f8c8d; font-weight: bold; text-transform: uppercase; margin-bottom: 5px; }
+    .data-value { font-size: 1.4rem; color: #2c3e50; font-weight: bold; }
 
-    .images-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-top: 20px; }
-    .img-container { height: 200px; background: #f0f0f0; border: 1px solid #ddd; border-radius: 5px; overflow: hidden; position: relative; }
+    /* Camera Feed Grid */
+    .images-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; margin-top: 20px; }
+    @media (max-width: 768px) { .images-grid { grid-template-columns: 1fr; } }
+    
+    .img-container { 
+      aspect-ratio: 16 / 9; 
+      background: #222; 
+      border-radius: 8px; 
+      overflow: hidden; 
+      position: relative; 
+      border: 3px solid #fff;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
     .img-container img { width: 100%; height: 100%; object-fit: cover; }
-    .img-label { position: absolute; bottom: 5px; left: 5px; background: rgba(0,0,0,0.6); color: white; padding: 2px 5px; font-size: 0.7rem; border-radius: 3px; }
+    .img-label { position: absolute; bottom: 10px; left: 10px; background: rgba(0,0,0,0.7); color: white; padding: 4px 10px; font-size: 0.8rem; border-radius: 4px; }
 
+    /* Charts Section */
     .charts-container { margin-top: 30px; }
-    .chart-box { background: #fff; border: 1px solid #eee; border-radius: 5px; padding: 15px; margin-bottom: 20px; }
-    .chart-box canvas { width: 100%; height: 300px; }
+    .chart-box { background: #fff; border: 1px solid #eee; border-radius: 8px; padding: 20px; margin-bottom: 25px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
+    .chart-box h3 { margin-top: 0; color: #34495e; font-size: 1.1rem; }
+    .chart-box canvas { width: 100% !important; height: 350px !important; }
+
+    #timestamp { font-weight: bold; color: #e67e22; background: #fff; display: inline-block; padding: 5px 15px; border-radius: 20px; margin-top: 15px; }
   </style>
 </head>
 <body>
+
   <header>
     <h1>SBMA AWOS Live Weather (C600 Bridge)</h1>
-    <div id="status">Status: Connecting...</div>
+    <div id="status">Status: Initializing...</div>
   </header>
 
   <div class="main-container">
-    <h2>Latest Data</h2>
+    <h2>Latest Conditions</h2>
     <div id="data-grid" class="data-grid-30"></div>
 
-    <h2>Camera Images</h2>
+    <div id="timestamp">Data as of: --</div>
+
+    <h2>Live Camera Feeds</h2>
     <div class="images-grid">
-      <div class="img-container"><img id="img-cam1"><div class="img-label">Cam 1</div></div>
-      <div class="img-container"><img id="img-cam2"><div class="img-label">Cam 2</div></div>
-      <div class="img-container"><img id="img-cam3"><div class="img-label">Cam 3</div></div>
-      <div class="img-container"><img id="img-cam4"><div class="img-label">Cam 4</div></div>
+      <div class="img-container"><img id="img-cam1" alt="Cam 1"><div class="img-label">Station View 1</div></div>
+      <div class="img-container"><img id="img-cam2" alt="Cam 2"><div class="img-label">Station View 2</div></div>
+      <div class="img-container"><img id="img-cam3" alt="Cam 3"><div class="img-label">Station View 3</div></div>
+      <div class="img-container"><img id="img-cam4" alt="Cam 4"><div class="img-label">Station View 4</div></div>
     </div>
 
-    <div id="timestamp" style="margin-top:10px;">Data as of: --</div>
-
-    <h2>Charts</h2>
+    <h2>Weather Trends (Last 24 Hours)</h2>
     <div id="charts-container" class="charts-container"></div>
   </div>
 
@@ -54,10 +86,12 @@
     const sheetId = "1ZjECyZKnnqzhWvJjHq6WHpgNho2mb9Eml0gInIM5bTk";
     const feedUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json`;
 
+    // Helper to handle Google Drive image thumbnails
     function processImageUrl(url) {
       if (!url) return '';
       if (url.includes("id=")) {
-        const fileId = url.split("id=")[1];
+        const parts = url.split("id=");
+        const fileId = parts[1].split("&")[0];
         return `https://drive.google.com/thumbnail?id=${fileId}&sz=w1000`;
       }
       return url;
@@ -65,93 +99,140 @@
 
     async function fetchWeatherData() {
       const statusEl = document.getElementById('status');
-      statusEl.innerText = "Status: Fetching latest data...";
+      statusEl.innerText = "Status: Updating data...";
+      
       try {
         const response = await fetch(feedUrl);
         const text = await response.text();
         const jsonString = text.substring(text.indexOf("(") + 1, text.lastIndexOf(")"));
         const json = JSON.parse(jsonString);
+        
         const rows = json.table.rows;
         const headers = json.table.cols.map(c => c.label);
 
         if (!rows || rows.length === 0) {
-          statusEl.innerText = "Status: No data found.";
+          statusEl.innerText = "Status: No data available.";
           return;
         }
 
         const latestRow = rows[rows.length - 1].c;
 
-        // --- Show all data values except timestamp and images ---
+        // 1. Fill Data Grid
         const grid = document.getElementById('data-grid');
         grid.innerHTML = '';
         headers.forEach((h, i) => {
-          if (!h) return;
-          if (h.includes("Timestamp") || h.startsWith("Image")) return;
-          const val = latestRow[i] ? latestRow[i].v : '--';
+          if (!h || h.toLowerCase().includes("timestamp") || h.toLowerCase().startsWith("image")) return;
+          const val = latestRow[i] ? (latestRow[i].f || latestRow[i].v) : '--';
           const box = document.createElement('div');
           box.className = 'data-box';
           box.innerHTML = `<div class="data-label">${h}</div><div class="data-value">${val}</div>`;
           grid.appendChild(box);
         });
 
-        // --- Show 4 images ---
-        document.getElementById('img-cam1').src = processImageUrl(latestRow[headers.indexOf("Image_Cam1")]?.v || '');
-        document.getElementById('img-cam2').src = processImageUrl(latestRow[headers.indexOf("Image_Cam2")]?.v || '');
-        document.getElementById('img-cam3').src = processImageUrl(latestRow[headers.indexOf("Image_Cam3")]?.v || '');
-        document.getElementById('img-cam4').src = processImageUrl(latestRow[headers.indexOf("Image_Cam4")]?.v || '');
+        // 2. Update Images
+        const camIds = ['Image_Cam1', 'Image_Cam2', 'Image_Cam3', 'Image_Cam4'];
+        camIds.forEach((id, index) => {
+          const colIdx = headers.indexOf(id);
+          if (colIdx !== -1) {
+            document.getElementById(`img-cam${index+1}`).src = processImageUrl(latestRow[colIdx]?.v || '');
+          }
+        });
 
-        const ts = latestRow[headers.indexOf("Timestamp (UTC)")]?.v || '--';
+        // 3. Update Timestamp
+        const tsIdx = headers.indexOf("Timestamp (UTC)");
+        const ts = latestRow[tsIdx] ? (latestRow[tsIdx].f || latestRow[tsIdx].v) : '--';
         document.getElementById('timestamp').innerText = "Data as of: " + ts;
 
-        // --- Build grouped charts ---
+        // 4. Build Charts
         const chartsContainer = document.getElementById('charts-container');
-        chartsContainer.innerHTML = '';
+        chartsContainer.innerHTML = ''; // Clear previous charts
 
-        function buildChart(title, fields, dualAxis=false) {
-          const labels = rows.slice(-288).map(r => r.c[headers.indexOf("Timestamp (UTC)")]?.v || '');
-          const datasets = [];
-          fields.forEach((f, idx) => {
-            const colIndex = headers.indexOf(f);
-            if (colIndex === -1) return;
-            const values = rows.slice(-288).map(r => r.c[colIndex]?.v || null);
+        /**
+         * buildChart logic
+         * Automatically groups by unit in header string: e.g. "(kt)" or "(C)"
+         */
+        function buildChart(title, fieldList) {
+          const lastData = rows.slice(-288); // Approx last 24 hrs
+          const labels = lastData.map(r => r.c[tsIdx]?.f || r.c[tsIdx]?.v || '');
+          
+          let datasets = [];
+          let seenUnits = [];
+
+          fieldList.forEach((fieldName) => {
+            const colIdx = headers.indexOf(fieldName);
+            if (colIdx === -1) return;
+
+            // Extract unit between parentheses
+            const match = fieldName.match(/\(([^)]+)\)/);
+            const unit = match ? match[1] : 'val';
+            
+            if (!seenUnits.includes(unit)) seenUnits.push(unit);
+            const isSecondAxis = seenUnits.indexOf(unit) > 0;
+
             datasets.push({
-              label: f,
-              data: values,
-              borderColor: ['#3498db','#e74c3c','#2ecc71','#9b59b6','#f39c12'][idx % 5],
-              fill: false,
-              yAxisID: dualAxis && idx > 0 ? 'y1' : 'y'
+              label: fieldName,
+              data: lastData.map(r => r.c[colIdx]?.v || null),
+              borderColor: ['#3498db', '#e74c3c', '#2ecc71', '#f39c12', '#9b59b6'][datasets.length % 5],
+              backgroundColor: 'transparent',
+              borderWidth: 2,
+              pointRadius: 0,
+              tension: 0.3,
+              yAxisID: isSecondAxis ? 'y1' : 'y'
             });
           });
+
+          if (datasets.length === 0) return;
+
           const chartBox = document.createElement('div');
           chartBox.className = 'chart-box';
           chartBox.innerHTML = `<h3>${title}</h3><canvas></canvas>`;
           chartsContainer.appendChild(chartBox);
-          const ctx = chartBox.querySelector('canvas').getContext('2d');
-          new Chart(ctx, {
+
+          new Chart(chartBox.querySelector('canvas'), {
             type: 'line',
             data: { labels, datasets },
             options: {
               responsive: true,
               maintainAspectRatio: false,
-              scales: dualAxis ? {
-                y: { position: 'left' },
-                y1: { position: 'right', grid: { drawOnChartArea: false } }
-              } : { y: { position: 'left' } }
+              interaction: { mode: 'index', intersect: false },
+              scales: {
+                x: { ticks: { maxTicksLimit: 12 } },
+                y: { 
+                  type: 'linear', 
+                  display: true, 
+                  position: 'left',
+                  title: { display: true, text: seenUnits[0] || '' } 
+                },
+                y1: { 
+                  type: 'linear', 
+                  display: seenUnits.length > 1, 
+                  position: 'right',
+                  grid: { drawOnChartArea: false },
+                  title: { display: true, text: seenUnits[1] || '' }
+                }
+              }
             }
           });
         }
 
-        // Chart 1: Wind Speed, Max Wind Speed, Wind Chill
-        buildChart("Wind Metrics", ["Wind Speed (kt)", "Max Wind Speed (kt)", "Wind Chill (C)"], true);
+        // Configuration of the 5 Charts
+        buildChart("Wind Metrics", ["Wind Speed (kt)", "Max Wind Speed (kt)", "Wind Chill (C)"]);
+        buildChart("Precipitation & Humidity", ["Precip (in/hr)", "Relative Humidity"]);
+        buildChart("Temperature Profile", ["Temp (C)", "Dew Point (C)", "Relative Humidity", "Heat Index (C)"]);
+        buildChart("Atmospheric Pressure & Altitude", ["Altimeter (inHg)", "Elevation (ft)", "Station Pressure (inHg)", "Pressure Alt (ft)", "Density Alt (ft)"]);
+        buildChart("System Diagnostics", ["Voltage"]);
 
-        // Chart 2: Precip, Relative Humidity
-        buildChart("Moisture Metrics", ["Precip (in/hr)", "Relative Humidity"], true);
+        statusEl.innerText = "Status: Live (Refreshing every 5 mins)";
+      } catch (error) {
+        console.error("Dashboard Error:", error);
+        statusEl.innerText = "Status: Error fetching data. Check Console.";
+      }
+    }
 
-        // Chart 3: Temp, Dew Point, Relative Humidity, Heat Index
-        buildChart("Temperature & Humidity", ["Temp (C)", "Dew Point (C)", "Relative Humidity", "Heat Index (C)"], true);
-
-        // Chart 4: Altimeter, Elevation, Station Pressure, Pressure Alt, Density Alt
-        buildChart("Pressure & Altitude", ["Altimeter (inHg)", "Elevation (ft)", "Station Pressure (inHg)", "Pressure Alt (ft)", "Density Alt (ft)"], true);
-
-        // Chart 5: Voltage
-        buildChart("Voltage", ["
+    // Run on load
+    fetchWeatherData();
+    // Refresh every 5 minutes
+    setInterval(fetchWeatherData, 300000);
+  </script>
+</body>
+</html>
