@@ -3,7 +3,6 @@
 <head>
   <meta charset="UTF-8">
   <title>SBMA AWOS Live Weather Dashboard</title>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
   <style>
     body { font-family: 'Segoe UI', sans-serif; background: #f4f7f6; margin: 0; padding: 20px; }
     header { background: #2c3e50; color: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
@@ -20,10 +19,6 @@
     .img-container { height: 200px; background: #f0f0f0; border: 1px solid #ddd; border-radius: 5px; overflow: hidden; position: relative; }
     .img-container img { width: 100%; height: 100%; object-fit: cover; }
     .img-label { position: absolute; bottom: 5px; left: 5px; background: rgba(0,0,0,0.6); color: white; padding: 2px 5px; font-size: 0.7rem; border-radius: 3px; }
-
-    .charts-container { margin-top: 30px; }
-    .chart-box { background: #fff; border: 1px solid #eee; border-radius: 5px; padding: 15px; margin-bottom: 20px; }
-    .chart-box canvas { width: 100%; height: 300px; }
   </style>
 </head>
 <body>
@@ -33,7 +28,7 @@
   </header>
 
   <div class="main-container">
-    <h2>Latest Data (30 fields)</h2>
+    <h2>Latest Data</h2>
     <div id="data-grid" class="data-grid-30"></div>
 
     <h2>Camera Images</h2>
@@ -45,9 +40,6 @@
     </div>
 
     <div id="timestamp" style="margin-top:10px;">Data as of: --</div>
-
-    <h2>24‑Hour Charts</h2>
-    <div id="charts-container" class="charts-container"></div>
   </div>
 
   <script>
@@ -102,35 +94,6 @@
 
         const ts = latestRow[headers.indexOf("Timestamp (UTC)")]?.v || '--';
         document.getElementById('timestamp').innerText = "Data as of: " + ts;
-
-        // --- Build 24‑hour charts for all fields except timestamp and images ---
-        const chartsContainer = document.getElementById('charts-container');
-        chartsContainer.innerHTML = '';
-        headers.forEach((h, i) => {
-          if (!h) return;
-          if (h.includes("Timestamp") || h.startsWith("Image")) return; // skip timestamp and images
-          const labels = [];
-          const values = [];
-          rows.slice(-288).forEach(row => { // 288 rows = 24h if 5‑min interval
-            labels.push(row.c[headers.indexOf("Timestamp (UTC)")]?.v || '');
-            values.push(row.c[i]?.v || null);
-          });
-
-          const chartBox = document.createElement('div');
-          chartBox.className = 'chart-box';
-          chartBox.innerHTML = `<h3>${h}</h3><canvas></canvas>`;
-          chartsContainer.appendChild(chartBox);
-
-          const ctx = chartBox.querySelector('canvas').getContext('2d');
-          new Chart(ctx, {
-            type: 'line',
-            data: {
-              labels: labels,
-              datasets: [{ label: h, data: values, borderColor: '#3498db', fill: false }]
-            },
-            options: { responsive: true, maintainAspectRatio: false }
-          });
-        });
 
         statusEl.innerText = "Status: Live Data Active";
       } catch (error) {
