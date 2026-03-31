@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <title>SBMA AWOS Live Weather Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
   <style>
     body { font-family: 'Segoe UI', sans-serif; background: #f4f7f6; margin: 0; padding: 20px; }
     header { background: #2c3e50; color: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
@@ -19,6 +20,10 @@
     .img-container { height: 200px; background: #f0f0f0; border: 1px solid #ddd; border-radius: 5px; overflow: hidden; position: relative; }
     .img-container img { width: 100%; height: 100%; object-fit: cover; }
     .img-label { position: absolute; bottom: 5px; left: 5px; background: rgba(0,0,0,0.6); color: white; padding: 2px 5px; font-size: 0.7rem; border-radius: 3px; }
+
+    .charts-container { margin-top: 30px; }
+    .chart-box { background: #fff; border: 1px solid #eee; border-radius: 5px; padding: 15px; margin-bottom: 20px; }
+    .chart-box canvas { width: 100%; height: 300px; }
   </style>
 </head>
 <body>
@@ -40,6 +45,9 @@
     </div>
 
     <div id="timestamp" style="margin-top:10px;">Data as of: --</div>
+
+    <h2>Charts</h2>
+    <div id="charts-container" class="charts-container"></div>
   </div>
 
   <script>
@@ -78,7 +86,7 @@
         grid.innerHTML = '';
         headers.forEach((h, i) => {
           if (!h) return;
-          if (h.includes("Timestamp") || h.startsWith("Image")) return; // skip timestamp and images
+          if (h.includes("Timestamp") || h.startsWith("Image")) return;
           const val = latestRow[i] ? latestRow[i].v : '--';
           const box = document.createElement('div');
           box.className = 'data-box';
@@ -95,15 +103,55 @@
         const ts = latestRow[headers.indexOf("Timestamp (UTC)")]?.v || '--';
         document.getElementById('timestamp').innerText = "Data as of: " + ts;
 
-        statusEl.innerText = "Status: Live Data Active";
-      } catch (error) {
-        console.error("Fetch Error:", error);
-        statusEl.innerText = "Status: Error loading data.";
-      }
-    }
+        // --- Build grouped charts ---
+        const chartsContainer = document.getElementById('charts-container');
+        chartsContainer.innerHTML = '';
 
-    fetchWeatherData();
-    setInterval(fetchWeatherData, 300000); // refresh every 5 minutes
-  </script>
-</body>
-</html>
+        function buildChart(title, fields, dualAxis=false) {
+          const labels = rows.slice(-288).map(r => r.c[headers.indexOf("Timestamp (UTC)")]?.v || '');
+          const datasets = [];
+          fields.forEach((f, idx) => {
+            const colIndex = headers.indexOf(f);
+            if (colIndex === -1) return;
+            const values = rows.slice(-288).map(r => r.c[colIndex]?.v || null);
+            datasets.push({
+              label: f,
+              data: values,
+              borderColor: ['#3498db','#e74c3c','#2ecc71','#9b59b6','#f39c12'][idx % 5],
+              fill: false,
+              yAxisID: dualAxis && idx > 0 ? 'y1' : 'y'
+            });
+          });
+          const chartBox = document.createElement('div');
+          chartBox.className = 'chart-box';
+          chartBox.innerHTML = `<h3>${title}</h3><canvas></canvas>`;
+          chartsContainer.appendChild(chartBox);
+          const ctx = chartBox.querySelector('canvas').getContext('2d');
+          new Chart(ctx, {
+            type: 'line',
+            data: { labels, datasets },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              scales: dualAxis ? {
+                y: { position: 'left' },
+                y1: { position: 'right', grid: { drawOnChartArea: false } }
+              } : { y: { position: 'left' } }
+            }
+          });
+        }
+
+        // Chart 1: Wind Speed, Max Wind Speed, Wind Chill
+        buildChart("Wind Metrics", ["Wind Speed (kt)", "Max Wind Speed (kt)", "Wind Chill (C)"], true);
+
+        // Chart 2: Precip, Relative Humidity
+        buildChart("Moisture Metrics", ["Precip (in/hr)", "Relative Humidity"], true);
+
+        // Chart 3: Temp, Dew Point, Relative Humidity, Heat Index
+        buildChart("Temperature & Humidity", ["Temp (C)", "Dew Point (C)", "Relative Humidity", "Heat Index (C)"], true);
+
+        // Chart 4: Altimeter, Elevation, Station Pressure, Pressure Alt, Density Alt
+        buildChart("Pressure & Altitude", ["Altimeter (inHg)", "Elevation (ft)", "Station Pressure (inHg)", "Pressure Alt (ft)", "Density Alt (ft)"], true);
+
+        // Chart 5: Voltage
+        buildChart("Voltage", ["
