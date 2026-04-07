@@ -253,8 +253,8 @@
   <script>
     let map;
     let stationMarker;
-    let currentLat = 14.8039;  // Fallback coordinates
-    let currentLng = 120.2723; // Fallback coordinates
+    let currentLat = 14.8039;
+    let currentLng = 120.2723;
 
     function showView(viewId, el) {
       document.querySelectorAll('.view-section').forEach(sec => sec.classList.remove('active'));
@@ -304,7 +304,7 @@
       const popupContent = `
         <div class="popup-title">SBMA AWOS Station</div>
         <div class="popup-data"><strong>Lat:</strong> ${currentLat.toFixed(4)}°</div>
-        <div class="popup-data"><strong>Lng:</strong> ${currentLng.toFixed(4)}°</div>
+        <div class="popup-data"><strong>Lon:</strong> ${currentLng.toFixed(4)}°</div>
         <div class="popup-data"><strong>Temperature:</strong> ${temp}</div>
         <div class="popup-data"><strong>Wind Speed:</strong> ${wind}</div>
         <div class="popup-data"><strong>Humidity:</strong> ${humidity}</div>
@@ -354,9 +354,9 @@
         const rawTs = latestRow[tsIdx]?.f || latestRow[tsIdx]?.v || '--';
         document.getElementById('header-ts').innerText = toManilaTime(rawTs);
 
-        // Extract Latitude and Longitude from Google Sheet
-        const latIdx = headers.findIndex(h => h && h.toLowerCase().includes('lat'));
-        const lngIdx = headers.findIndex(h => h && h.toLowerCase().includes('lng') || h?.toLowerCase().includes('lon'));
+        // Extract Latitude and Longitude from Google Sheet - EXACT MATCH
+        const latIdx = headers.findIndex(h => h && h.trim() === 'Lat');
+        const lngIdx = headers.findIndex(h => h && h.trim() === 'Lon');
 
         if (latIdx !== -1 && lngIdx !== -1) {
           currentLat = parseFloat(latestRow[latIdx]?.v) || currentLat;
@@ -370,7 +370,7 @@
         let temp = '--', windSpeed = '--', humidity = '--';
 
         headers.forEach((h, i) => {
-          if (!h || h.toLowerCase().includes("timestamp") || h.toLowerCase().startsWith("image") || h.toLowerCase().includes("lat") || h.toLowerCase().includes("lng") || h.toLowerCase().includes("lon")) return;
+          if (!h || h.toLowerCase().includes("timestamp") || h.toLowerCase().startsWith("image") || h.trim() === "Lat" || h.trim() === "Lon") return;
           const val = latestRow[i] ? (latestRow[i].v) : 0;
           const displayVal = latestRow[i] ? (latestRow[i].f || latestRow[i].v) : '--';
           
